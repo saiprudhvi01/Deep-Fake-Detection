@@ -1,8 +1,18 @@
 import streamlit as st
-import cv2
+import sys
+import os
 from PIL import Image, ExifTags
 from PIL.ExifTags import TAGS
 import numpy as np
+
+# Try to import OpenCV with headless support
+try:
+    import cv2
+except ImportError:
+    st.warning("OpenCV not found. Installing...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "opencv-python-headless"])
+    import cv2
 
 # Page configuration
 st.set_page_config(
@@ -30,23 +40,38 @@ def extract_exif_data(image):
 def detect_faces(image_array):
     """Detect faces in the image using OpenCV"""
     try:
-        # Convert PIL image to OpenCV format
-        gray = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
+        if not hasattr(cv2, 'data'):
+            st.warning("OpenCV data files not available. Face detection will be limited.")
+            return False, []
+            
+        # Convert to grayscale for face detection
+        gray = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
         
-        # Load face cascade
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        
-        # Detect faces
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-        
-        # Draw rectangles around faces
-        image_with_faces = image_array.copy()
-        for (x, y, w, h) in faces:
-            cv2.rectangle(image_with_faces, (x, y), (x+w, y+h), (255, 0, 0), 3)
-        
-        return image_with_faces, len(faces)
-    except Exception:
-        return image_array, 0
+        # Try to load the pre-trained face detector
+        try:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            if face_cascade.empty():
+                st.warning("Could not load face detection model. Face detection will be skipped.")
+                return False, []
+                
+            # Detect faces
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30)
+            )
+            
+            return len(faces) > 0, faces
+            
+        except Exception as e:
+            st.warning(f"Face detection not available: {str(e)}")
+            return False, []
+            
+    except Exception as e:
+        st.warning(f"Error in face detection: {str(e)}")
+        return False, []
+
 
 def analyze_image_tampering(image, image_path, image_format):
     """Analyze image for tampering indicators and return detailed explanation"""
