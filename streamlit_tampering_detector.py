@@ -128,9 +128,9 @@ def analyze_image_tampering(image, image_path, image_format):
 
     # 6. Face detection for potential manipulation
     image_array = np.array(image)
-    _, face_count = detect_faces(image_array)
-    if face_count > 0:
-        results['reasons'].append(f"✅ {face_count} face(s) detected - No obvious signs of face manipulation")
+    has_faces, faces = detect_faces(image_array)
+    if has_faces and len(faces) > 0:
+        results['reasons'].append(f"✅ {len(faces)} face(s) detected - No obvious signs of face manipulation")
     else:
         results['reasons'].append("ℹ️ No faces detected - This is normal for landscape/object photos")
     
